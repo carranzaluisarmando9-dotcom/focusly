@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "typecheck": "tsc -b",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:offline": "playwright test --config=playwright.production.config.ts"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.5",

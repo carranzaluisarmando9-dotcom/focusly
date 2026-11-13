@@ -36,6 +36,9 @@ jobs:
         env:
           BRAVE_EXECUTABLE: /usr/bin/brave-browser
       - run: npm run build
+      - run: npm run test:offline
+        env:
+          BRAVE_EXECUTABLE: /usr/bin/brave-browser
       - run: npm audit --audit-level=moderate
       - uses: actions/upload-artifact@v4
         with:
@@ -69,3 +72,4 @@ jobs:
         run: |
           test -n "$VERCEL_TOKEN" || { echo "Configure the VERCEL_TOKEN repository secret."; exit 1; }
           npx --yes vercel@52.0.0 deploy dist --prod --yes --scope luiscarranza13s-projects --token "$VERCEL_TOKEN"
+
