@@ -1,0 +1,21 @@
+node_modules/
+dist/
+*.local
+.env*
+!.env.example
+coverage/
+*.tsbuildinfo
+
+# Local captures, design drafts and tooling output
+/*.png
+/*.svg
+.playwright-mcp/
+.vite/
+.vitest/
+*.log
+.DS_Store
+Thumbs.db
+.vercel/
+
+playwright-report/
+test-results/

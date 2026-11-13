@@ -1,0 +1,14 @@
+import { describe,it,expect,vi,afterEach } from 'vitest'
+import { statistics } from './statistics'
+import { addSession,type Session } from './model'
+import { freshTimer,startTimer,pauseTimer,syncTimer } from '../../utils/timerState'
+const session=(id:string,date:Date,minutes:number):Session=>({id,endedAt:date.toISOString(),durationMs:minutes*60000,taskId:null,taskTitle:null})
+afterEach(()=>vi.useRealTimers())
+describe('focus statistics and timer history',()=>{
+ it('calculates total, daily and last seven calendar days across midnight',()=>{vi.useFakeTimers();vi.setSystemTime(new Date(2026,10,12,23,59));const h=[session('a',new Date(2026,10,12,22),25),session('b',new Date(2026,10,6,12),40),session('c',new Date(2026,10,5,12),15)];let s=statistics(h,new Date());expect(s.total).toBe(80*60000);expect(s.daily).toBe(25*60000);expect(s.weekly).toBe(65*60000);vi.advanceTimersByTime(120000);s=statistics(h,new Date());expect(s.daily).toBe(0);expect(s.weekly).toBe(25*60000);expect(s.days).toHaveLength(7)})
+ it('returns zeros without history',()=>{const s=statistics([],new Date());expect([s.total,s.daily,s.weekly,s.count]).toEqual([0,0,0,0])})
+ it('registers focus completion once with deadline and current task snapshot',()=>{const running=startTimer(freshTimer('focus',60000),1000,'unique');const done=syncTimer(running,90000,{id:'task',title:'Current title'});expect(done.result).toEqual({id:'unique',endedAt:new Date(61000).toISOString(),durationMs:60000,taskId:'task',taskTitle:'Current title'});const history=addSession([],done.result!);expect(addSession(history,done.result!)).toBe(history);expect(syncTimer(done,100000,undefined)).toBe(done)})
+ it('excludes paused time and resumes the same session',()=>{vi.useFakeTimers();vi.setSystemTime(1000);let s=startTimer(freshTimer('focus',60000),Date.now(),'same');vi.advanceTimersByTime(10000);s=pauseTimer(s,Date.now(),undefined);vi.advanceTimersByTime(120000);expect(syncTimer(s,Date.now(),undefined).result).toBeNull();expect(s.remaining).toBe(50000);s=startTimer(s,Date.now(),'unused');vi.advanceTimersByTime(50000);const done=syncTimer(s,Date.now(),undefined);expect(done.result?.id).toBe('same');expect(done.result?.durationMs).toBe(60000)})
+ it('does not record cancellations, resets or breaks',()=>{let s=startTimer(freshTimer('focus',60000),0,'cancelled');s=syncTimer(s,30000,undefined);expect(s.result).toBeNull();expect(freshTimer('focus',60000).result).toBeNull();for(const mode of ['short','long'] as const){expect(syncTimer(startTimer(freshTimer(mode,60000),0,mode),60000,undefined).result).toBeNull()}})
+ it('preserves historical task titles when task records change',()=>{const h=[{...session('one',new Date(),25),taskId:'deleted',taskTitle:'Original title'}];expect(statistics(h,new Date()).count).toBe(1);expect(h[0].taskTitle).toBe('Original title')})
+})

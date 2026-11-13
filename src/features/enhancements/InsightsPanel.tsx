@@ -1,0 +1,7 @@
+import { extendedStatistics } from './statistics'
+import { durationLabel } from '../productivity/statistics'
+import type { Session } from '../productivity/model'
+export function InsightsPanel({history,goal,today}:{history:Session[];goal:number;today:string}){
+ const now=new Date(`${today}T23:59:59.999`);const stats=extendedStatistics(history,now);const percentage=Math.min(100,Math.round(stats.daily/(goal*60000)*100))
+ return <section className="productivity-panel"><h2>Tu progreso con perspectiva</h2><div className="insights-grid"><div><h3>Objetivo de hoy</h3><p>{durationLabel(stats.daily)} de {durationLabel(goal*60000)} · {percentage}%</p><progress max={100} value={percentage} aria-label="Avance del objetivo diario"/><p>{percentage===100?'¡Objetivo alcanzado!':'Cada sesión completada suma.'}</p></div><div><h3>Comparación de semanas</h3><p>Últimos 7 días: <strong>{durationLabel(stats.current)}</strong></p><p>7 días anteriores: <strong>{durationLabel(stats.prior)}</strong></p><p>{stats.prior?`${Math.round((stats.current-stats.prior)/stats.prior*100)}% respecto a la semana anterior`:'Aún no hay una semana anterior para comparar.'}</p></div></div><h3>Concentración por tarea</h3>{stats.tasks.length?<ul className="session-list">{stats.tasks.map(task=><li key={task.id}><strong>{task.title}</strong><span>{durationLabel(task.duration)} · {task.sessions} {task.sessions===1?'sesión':'sesiones'}</span></li>)}</ul>:<p className="section-description">Completa una sesión para ver el tiempo dedicado a cada tarea.</p>}</section>
+}

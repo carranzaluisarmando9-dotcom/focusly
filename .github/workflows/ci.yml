@@ -1,0 +1,71 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - name: Install Brave from official repository
+        run: |
+          sudo curl -fsSLo /usr/share/keyrings/brave-browser-archive-keyring.gpg https://brave-browser-apt-release.s3.brave.com/brave-browser-archive-keyring.gpg
+          sudo curl -fsSLo /etc/apt/sources.list.d/brave-browser-release.sources https://brave-browser-apt-release.s3.brave.com/brave-browser.sources
+          sudo apt-get update
+          sudo apt-get install -y brave-browser
+      - run: npm run test:e2e
+        env:
+          BRAVE_EXECUTABLE: /usr/bin/brave-browser
+      - run: npm run build
+      - run: npm audit --audit-level=moderate
+      - uses: actions/upload-artifact@v4
+        with:
+          name: focusly-production
+          path: dist/
+          retention-days: 7
+  deploy:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && vars.VERCEL_DEPLOY_ENABLED == 'true'
+    needs: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+    concurrency:
+      group: focusly-production
+      cancel-in-progress: false
+    steps:
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - uses: actions/download-artifact@v4
+        with:
+          name: focusly-production
+          path: dist
+      - name: Link validated build to Focusly
+        run: |
+          mkdir -p dist/.vercel
+          printf '%s' '{"projectId":"prj_TBwsp2fjUdC2vtkHdyTrygD8lDhB","orgId":"team_bd6zQjDFtO71de80DFSkNguM","projectName":"focusly"}' > dist/.vercel/project.json
+      - name: Deploy the verified artifact
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          test -n "$VERCEL_TOKEN" || { echo "Configure the VERCEL_TOKEN repository secret."; exit 1; }
+          npx --yes vercel@52.0.0 deploy dist --prod --yes --scope luiscarranza13s-projects --token "$VERCEL_TOKEN"
